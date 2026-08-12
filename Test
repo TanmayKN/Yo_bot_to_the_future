@@ -1,3 +1,68 @@
-print("Hello world")
+// Ultrasonic test: reads front/left/right HC-SR04 sensors and prints distances (cm)
+
+#include <Arduino.h>
+
+const uint8_t TRIG_FRONT = 25;
+const uint8_t TRIG_LEFT  = 26;
+const uint8_t TRIG_RIGHT = 27;
+
+const uint8_t ECHO_FRONT = 36;
+const uint8_t ECHO_LEFT  = 39;
+const uint8_t ECHO_RIGHT = 34;
+
+const uint32_t ECHO_TIMEOUT_US = 30000; // ~5 m max range
+
+struct Sensor {
+  const char *name;
+  uint8_t trig;
+  uint8_t echo;
+};
+
+Sensor sensors[3] = {
+  {"front", TRIG_FRONT, ECHO_FRONT},
+  {"left",  TRIG_LEFT,  ECHO_LEFT},
+  {"right", TRIG_RIGHT, ECHO_RIGHT},
+};
+
+// Returns distance in cm clamped to 0-255. 255 = no echo / farther than 255 cm.
+uint8_t readDistanceCm(const Sensor &s) {
+  digitalWrite(s.trig, LOW);
+  delayMicroseconds(2);
+  digitalWrite(s.trig, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(s.trig, LOW);
+
+  uint32_t duration = pulseIn(s.echo, HIGH, ECHO_TIMEOUT_US);
+  if (duration == 0) {
+    return 255;
+  }
+
+  uint32_t cm = duration * 343UL / 20000UL; // us -> cm, halved for round trip
+  return cm > 255 ? 255 : (uint8_t)cm;
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  for (uint8_t i = 0; i < 3; i++) {
+    pinMode(sensors[i].trig, OUTPUT);
+    digitalWrite(sensors[i].trig, LOW);
+    pinMode(sensors[i].echo, INPUT);
+  }
+}
+
+void loop() {
+  for (uint8_t i = 0; i < 3; i++) {
+    uint8_t cm = readDistanceCm(sensors[i]);
+
+    Serial.print(cm);
+    if (i < 2) Serial.print(",");
+
+    delay(60); // let echoes settle before triggering the next sensor
+  }
+  Serial.println();
+
+  delay(200);
+}
 
 
